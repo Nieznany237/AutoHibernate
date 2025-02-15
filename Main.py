@@ -168,7 +168,7 @@ version_label.place(relx=1.0, rely=1.0, anchor="se", x=-7, y=0)
 
 # Check hibernation before starting
 if not check_hibernate_support():
-    messagebox.showerror("Error: Hibernation is not available on this system. The program will close. Please check if your system supports hibernation.")
+    messagebox.showerror("Error", "Hibernation is not available on this system. The program will close. Please check if your system supports hibernation.")
     root.destroy()
 else:
     countdown(time_label, progress_bar)
