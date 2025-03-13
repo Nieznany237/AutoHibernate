@@ -1,8 +1,15 @@
+'''
+Version 1.7 - 13.03.2025
+- Improved the function “countdown” for the progress bar where it now uses time.perf_counter() instead of a fixed step time, making the progress bar smoother and more accurate.
+- Hidden the 'maximize/minimize' buttons from the titlebar using maximize_minimize_button.hide(root)
+'''
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
 import base64
-#import time  # Import module for measuring time - DEBUG
+import time
+from hPyT import maximize_minimize_button
 
 # Application settings
 HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
@@ -10,8 +17,9 @@ DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
 BUTTON_FONT = ("Helvetica", 10)
 BUTTON_STYLE = "raised"
-version = "1.6"
-release_date = "15.02.2024"
+FRAME_STYLE = "groove"
+version = "1.7"
+release_date = "13.03.2025"
 
 # Function to check hibernation support
 def check_hibernate_support():
@@ -37,7 +45,7 @@ def check_hibernate_support():
         return False
 
 # Function to trigger system hibernation
-def hibernate():
+def hibernate_system_call():
     """
     Executes the Windows hibernation command with error handling.
     """
@@ -64,28 +72,31 @@ def countdown(label, progress):
     :param label: Label object displaying time
     :param progress: Progress bar object
     """
-    total_time = HIBERNATION_TIME + 0.9  # Total countdown time
-    step_time = 0.15  # Time between updates in seconds
-    steps = int(total_time / step_time)  # Number of countdown steps
-    progress_step = 100 / steps  # Progress bar increment per step
-    last_displayed_time = -1  # Helper variable to store the last displayed time
+    total_time = HIBERNATION_TIME  # Total countdown time
+    step_time = 0.01  # Time between updates in seconds
+    last_displayed_time = [-1]  # Helper variable to store the last displayed time
+    start_time = time.perf_counter()
 
-    def update_time(remaining_steps):
-        nonlocal last_displayed_time
-        if remaining_steps > 0:
-            remaining_time = remaining_steps * step_time
-            remaining_seconds = int(remaining_time)  # Round to full seconds
-            if remaining_seconds != last_displayed_time:
-                label.config(text=f"System will hibernate in\n{remaining_seconds} seconds")
-                last_displayed_time = remaining_seconds
-            progress["value"] += progress_step  # Update progress bar
-            root.after(int(step_time * 1000), update_time, remaining_steps - 1)
+    def update_time():
+        elapsed_time = time.perf_counter() - start_time
+        remaining_time = max(total_time - elapsed_time, 0)
+        remaining_seconds = int(remaining_time)
+        
+        if remaining_seconds != last_displayed_time[0]:
+            label.config(text=f"System will hibernate in\n{remaining_seconds} seconds")
+            last_displayed_time[0] = remaining_seconds
+        
+        progress["value"] = (elapsed_time / total_time) * 100  # Synchronize progress with real time
+        
+        if remaining_time > 0:
+            root.after(int(step_time * 1000), update_time)
         else:
-            hibernate()
-            #root.destroy()
+            progress["value"] = 100 
+            hibernate_system_call()
+            root.destroy()
 
-    progress["value"] = 0  # Reset progress bar at start
-    update_time(steps)
+    progress["value"] = 0
+    update_time()
 
 # Start measuring time
 #start_time = time.time()
@@ -115,6 +126,7 @@ root.title("Automatic Hibernation")  # Window title
 root.geometry("310x180+208+208")  # Window size + position
 root.resizable(False, False)  # Disable window resizing
 root.attributes("-topmost", True)  # Keep window on top
+maximize_minimize_button.hide(root)
 
 # Set application icon if Base64 image is valid
 app_icon = load_base64_image(base64_image_1)
@@ -155,7 +167,7 @@ hibernate_button = tk.Button(
     height=2,
     relief=BUTTON_STYLE,
     border=2,
-    command=hibernate
+    command=hibernate_system_call
 )
 hibernate_button.pack(side=tk.LEFT, padx=3)
 
