@@ -2,7 +2,7 @@
 
 This is a simple Python application using Tkinter to automatically hibernate a Windows system after a countdown. It also includes a manual hibernation option.
 
-![Screenshot 1](./Images/1.png)
+![Screenshot 2](./Images/2.png)
 
 ## Features
 - Checks if the system supports hibernation
@@ -14,6 +14,8 @@ This is a simple Python application using Tkinter to automatically hibernate a W
 - Windows OS (with hibernation enabled)
 - Python 3.11 or later
 - Tkinter
+- [ttkbootstrap](<https://github.com/israel-dryer/ttkbootstrap>)
+- [hPyT ](<https://github.com/Zingzy/hPyT>)
 
 ## Installation
 1. Download the source code from the repository.
@@ -29,8 +31,8 @@ This is a simple Python application using Tkinter to automatically hibernate a W
 - You can close the application before hibernation using the **Close Application** button.
 
 ## Version
-- **Version:** 1.6
-- **Release Date:** 15.02.2024
+- **Version:** 1.7
+- **Release Date:** 13.03.2024
 
 ## License
 This project is licensed under the MIT License.
