@@ -139,9 +139,15 @@ root.attributes("-topmost", True)
 maximize_minimize_button.hide(root)
 
 # Key bindings
+def on_return(event=None):
+    hibernate_system_call()
+
+def on_escape(event=None):
+    root.destroy()
+
 if Keybinds_enabled == True:
-    root.bind("<Escape>", lambda event: hibernate_system_call())
-    root.bind("<Return>", lambda event: root.destroy())
+    root.bind("<Escape>", on_escape)
+    root.bind("<Return>", on_return)
 
 # Set application icon if Base64 image is valid
 app_icon = load_base64_image(base64_image_1)
