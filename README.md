@@ -14,14 +14,22 @@ This is a simple Python application using Tkinter to automatically hibernate a W
 - Windows OS (with hibernation enabled)
 - Python 3.11 or later
 - Tkinter
-- [ttkbootstrap](<https://github.com/israel-dryer/ttkbootstrap>)
-- [hPyT ](<https://github.com/Zingzy/hPyT>)
+- [hPyT](https://github.com/Zingzy/hPyT)
 
 ## Installation
 1. Download the source code from the repository.
 2. Make sure you have the correct version of Python installed.
-3. Run the Python script:
-   ```bash
+3. (Optional) Create and activate a virtual environment:
+   ```powershell
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   ```
+4. Install the required packages:
+   ```powershell
+   pip install -r requirements.txt
+   ```
+5. Run the Python script:
+   ```powershell
    python Main.py
    ```
 
@@ -29,10 +37,6 @@ This is a simple Python application using Tkinter to automatically hibernate a W
 - When the application starts, a countdown to hibernation begins.
 - You can manually hibernate by clicking the **Hibernate Now** button.
 - You can close the application before hibernation using the **Close Application** button.
-
-## Version
-- **Version:** 1.7
-- **Release Date:** 13.03.2024
 
 ## License
 This project is licensed under the MIT License.
