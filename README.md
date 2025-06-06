@@ -7,7 +7,7 @@ This is a simple Python application using Tkinter to automatically hibernate a W
 ## Features
 - Checks if the system supports hibernation
 - Displays a countdown with a progress bar
-- Allows immediate hibernation via a button
+- Allows immediate hibernation via a button or keyboard shortcut (see below)
 - Simple graphical interface
 
 ## Requirements
@@ -37,6 +37,15 @@ This is a simple Python application using Tkinter to automatically hibernate a W
 - When the application starts, a countdown to hibernation begins.
 - You can manually hibernate by clicking the **Hibernate Now** button.
 - You can close the application before hibernation using the **Close Application** button.
+
+### Keyboard Shortcuts
+
+The app supports the following hardcoded keyboard shortcuts (these cannot be changed... for now):
+
+| Shortcut         | Action            |
+|------------------|-------------------|
+| <kbd>Enter</kbd> | Hibernate Now     |
+| <kbd>Esc</kbd>   | Close Application |
 
 ## License
 This project is licensed under the MIT License.

@@ -6,13 +6,13 @@ import base64
 import logging
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 
-version = "1.8b DEV"
-release_date = "04.05.2025"
+version = "1.8b"
+release_date = "06.06.2025"
 
 # Logger configuration
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.DEBUG, # INFO, DEBUG, WARNING, ERROR, CRITICAL
+    format="%(asctime)s - [%(levelname)s] - %(message)s",
     handlers=[
         #logging.FileHandler("app.log", encoding="utf-8"),
         logging.StreamHandler()
@@ -20,13 +20,19 @@ logging.basicConfig(
 )
 
 # Global cache
-App_Start_time_DEBUG = time.time()  # Start measuring time
+Debug_Mode = False
 _hibernate_supported = None  # Global variable storing hibernation state
 FPS_Count_Sum = 0
+Keybinds_enabled = True  # Set to False to disable keybinds
+
+if logging.getLogger().isEnabledFor(logging.DEBUG):
+    logging.debug("Debug mode is enabled. Debug messages will be logged.")
+    Debug_Mode = True
+    App_Start_time_DEBUG = time.time()  # Start measuring time
 
 # Application settings
 HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
-TARGET_FPS = 20  # Target: 60 FPS (for smoothness)
+TARGET_FPS = 20  # Target: 20 FPS (for smoothness)
 DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
 BUTTON_FONT = ("Helvetica", 10)
@@ -42,6 +48,7 @@ def check_hibernate_support():
     try:
         result = subprocess.run(["powercfg", "/a"], capture_output=True, text=True).stdout
         _hibernate_supported = "Hibernate" in result.split("The following sleep states are available on this system:")[1]
+        logging.info(f"Hibernation supported: {_hibernate_supported}")
         return _hibernate_supported
     except Exception as e:
         logging.exception(f"Error checking hibernation - {e}")
@@ -56,12 +63,12 @@ def hibernate_system_call():
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-        '''subprocess.run(
+        subprocess.run(
             ["shutdown", "/h"],
             check=True,
             startupinfo=startupinfo,
             creationflags=subprocess.CREATE_NO_WINDOW
-        )'''
+        )
     except subprocess.CalledProcessError as e:
         error_message = f"System error: exit code {e.returncode}"
         logging.error(error_message)
@@ -74,7 +81,7 @@ def hibernate_system_call():
         root.destroy()
 
 # Countdown function to hibernation with progress bar update
-def countdown(label, progress):
+def countdown(label: tk.Label, progress: ttk.Progressbar):
     total_time = HIBERNATION_TIME
     step_time = 1.0 / TARGET_FPS  # ~0.0167 sekundy
     last_displayed_time = -1
@@ -110,12 +117,12 @@ def countdown(label, progress):
     update_time()
 
 # Function to load a Base64 image as application icon
-def load_base64_image(base64_string):
+def load_base64_image(base64_string: str):
     try:
         image_bytes = base64.b64decode(base64_string.split(',')[1])
         return tk.PhotoImage(data=image_bytes)
     except Exception as e:
-        logging.exception("Error loading image")
+        logging.exception(f"Error loading image {e}")
         return None
 
 # Base64 image code (currently empty, insert valid code)
@@ -130,6 +137,11 @@ root.geometry("310x180+208+208")
 root.resizable(False, False)
 root.attributes("-topmost", True)
 maximize_minimize_button.hide(root)
+
+# Key bindings
+if Keybinds_enabled == True:
+    root.bind("<Escape>", lambda event: hibernate_system_call())
+    root.bind("<Return>", lambda event: root.destroy())
 
 # Set application icon if Base64 image is valid
 app_icon = load_base64_image(base64_image_1)
@@ -190,7 +202,7 @@ version_label = tk.Label(
     root, text=f"By @Nieznany237 | Version {version} Released {release_date}",
     font=FOOTER_FONT, fg="#7E7E7E", anchor="se", justify="right"
 )
-version_label.place(relx=1.0, rely=1.0, anchor="se", x=-7, y=0)
+version_label.place(relx=1.0, rely=1.0, anchor="se", x=-8, y=0)
 
 # Check hibernation before starting
 if not check_hibernate_support():
@@ -206,9 +218,10 @@ else:
 root.mainloop()
 
 # DEBUG
-App_End_time_DEBUG = time.time()
-elapsed_time = App_End_time_DEBUG - App_Start_time_DEBUG
-actual_fps = FPS_Count_Sum / HIBERNATION_TIME
-logging.info(f"Application runtime: {elapsed_time:.4f} seconds")
-logging.info(f"Average FPS: {actual_fps:.1f}")
-logging.info(f"Total FPS count: {FPS_Count_Sum}")
+if Debug_Mode == True:
+    App_End_time_DEBUG = time.time()
+    elapsed_time = App_End_time_DEBUG - App_Start_time_DEBUG # type: ignore
+    actual_fps = FPS_Count_Sum / HIBERNATION_TIME
+    logging.debug(f"Application runtime: {elapsed_time:.4f} seconds")
+    logging.debug(f"Average FPS: {actual_fps:.1f}")
+    logging.debug(f"Total FPS count: {FPS_Count_Sum}")
