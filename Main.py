@@ -9,13 +9,13 @@ import subprocess
 import base64
 import logging
 import os
+import json
+from getpass import getuser
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 from modules.b64assets import APP_ICON
-from getpass import getuser
-import json
 
-VERSION = "1.9-DEV"
-RELEASE_DATE = "06.06.2025"
+VERSION = "1.9"
+RELEASE_DATE = "28.06.2025"
 
 # Global cache
 DEBUG_MODE = False
@@ -24,10 +24,11 @@ DISABLE_HIBERNATION_CALL = True  # No more accidental hibernations durring devel
 FPS_Count_Sum = 0
 Keybinds_enabled = True  # Set to False to disable keybinds
 App_Start_time_DEBUG = time.time()  # Start measuring time
+countdown_terminated = False
 
 # Logger configuration
 logging.basicConfig(
-    level=logging.DEBUG, # INFO, DEBUG, WARNING, ERROR, CRITICAL
+    level=logging.INFO, # INFO, DEBUG, WARNING, ERROR, CRITICAL
     format="%(asctime)s - [%(levelname)s] - %(message)s",
     handlers=[
         #logging.FileHandler("AutoHibernate.log", encoding="utf-8"),
@@ -53,7 +54,7 @@ def load_config_from_file():
     '''Load HIBERNATION_TIME and TARGET_FPS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
     global HIBERNATION_TIME, TARGET_FPS
     username = getuser()
-    logging.info(f"Current user: {username}")
+    logging.info("Current user: %s", username)
     config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
     config_file = os.path.join(config_dir, "config.json")
     defaults = {
@@ -64,28 +65,28 @@ def load_config_from_file():
     target_fps = TARGET_FPS
     if not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
-        logging.info(f"Created config directory: {config_dir}")
+        logging.info("Created config directory: %s", config_dir)
     if not os.path.exists(config_file):
-        with open(config_file, 'w') as f:
+        with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(defaults, f, indent=4)
-        logging.info(f"Created config file with defaults: {config_file}")
+        logging.info("Created config file with defaults: %s", config_file)
     else:
         try:
-            with open(config_file, 'r') as f:
+            with open(config_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             hib_time = data.get('HIBERNATION_TIME', hib_time)
             target_fps = data.get('TARGET_FPS', target_fps)
             if isinstance(hib_time, int):
                 HIBERNATION_TIME = hib_time
-                logging.info(f"Loaded HIBERNATION_TIME from config: {HIBERNATION_TIME}")
+                logging.info("Loaded HIBERNATION_TIME from config: %s", HIBERNATION_TIME)
             if isinstance(target_fps, int):
                 TARGET_FPS = target_fps
-                logging.info(f"Loaded TARGET_FPS from config: {TARGET_FPS}")
+                logging.info("Loaded TARGET_FPS from config: %s", TARGET_FPS)
         except Exception as e:
-            logging.warning(f"Failed to load config.json, using defaults. Error: {e}")
-            with open(config_file, 'w') as f:
+            logging.warning("Failed to load config.json, using defaults. Error: %s", e)
+            with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(defaults, f, indent=4)
-            logging.info(f"Recreated config file with defaults: {config_file}")
+            logging.info("Recreated config file with defaults: %s", config_file)
     return hib_time, target_fps
 
 # Global variable for caching hibernation support result
@@ -144,7 +145,7 @@ def hibernate_system_call():
         root.destroy()
         return
     try:
-        '''This function attempts to call system hibernation using subprocess with hidden window (cmd).'''
+        # This function attempts to call system hibernation using subprocess with hidden window (cmd).
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
@@ -165,17 +166,33 @@ def hibernate_system_call():
     finally:
         root.destroy()
 
+def terminate_countdown():
+    '''Set the flag to terminate the countdown.'''
+    global countdown_terminated
+    countdown_terminated = True
+
+def on_closing():
+    '''Function to handle window closing event'''
+    logging.info("Window closing event triggered.")
+    terminate_countdown()  # Set the flag to terminate the countdown
+    root.destroy()  # Close the application window
+
 # Countdown function to hibernation with progress bar update
 def countdown(label: tk.Label, progress: ttk.Progressbar):
-    '''Function to handle countdown to hibernation with progress bar update'''
+    '''Function to handle countdown to hibernation with progress bar update, with ability to terminate.'''
     total_time = HIBERNATION_TIME
-    step_time = 1.0 / TARGET_FPS  # ~0.0167 sekundy
+    step_time = 1.0 / TARGET_FPS
     last_displayed_time = -1
     start_time = time.perf_counter()
 
     def update_time():
-        global FPS_Count_Sum # pylint: disable=W0603
+        global FPS_Count_Sum  # pylint: disable=W0603
         nonlocal last_displayed_time
+        if countdown_terminated:
+            label.config(text="Countdown terminated.")
+            progress["value"] = 0
+            return
+
         current_time = time.perf_counter()
         time_elapsed = current_time - start_time
         remaining_time = max(total_time - time_elapsed, 0)
@@ -230,6 +247,7 @@ root.attributes("-topmost", True)
 if current_os() == "Windows":
     maximize_minimize_button.hide(root)
     HIBERNATION_TIME, TARGET_FPS = load_config_from_file()
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 root.after(100, root.focus_force)  # Force focus after a short delay
 # Key bindings
@@ -270,11 +288,11 @@ time_label.pack(pady=5)
 
 # Progress bar
 progress_bar = ttk.Progressbar(Main_app_frame, maximum=100, length=240, mode='determinate')
-progress_bar.pack(pady=11)
+progress_bar.pack(pady=10)
 
 # Button frame
 button_frame = tk.Frame(Main_app_frame)
-button_frame.pack(pady=0)
+button_frame.pack(pady=0, side=tk.BOTTOM)
 
 # Close button
 close_button = tk.Button(
@@ -283,10 +301,10 @@ close_button = tk.Button(
     height=2,
     relief=BUTTON_STYLE,
     border=2,
-    command=root.destroy
+    command=on_closing
 )
 
-close_button.pack(side=tk.LEFT, padx=(3,3))
+close_button.pack(side=tk.LEFT, padx=(3,3), pady=(0, 3))
 
 # Hibernate button
 hibernate_button = tk.Button(
@@ -297,7 +315,7 @@ hibernate_button = tk.Button(
     border=2,
     command=hibernate_system_call
 )
-hibernate_button.pack(side=tk.LEFT, padx=(0, 3))
+hibernate_button.pack(side=tk.LEFT, padx=(0, 3), pady=(0, 3))
 
 # Footer with version info
 version_label = tk.Label(
