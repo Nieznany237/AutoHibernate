@@ -1,7 +1,8 @@
-/Ikony
 changelog.md
 /Test
 /App.build
 /App.dist
 /App.onefile-build
 /output
+**/__pycache__/
+**.exe
