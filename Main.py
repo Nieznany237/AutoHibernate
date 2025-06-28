@@ -19,7 +19,7 @@ RELEASE_DATE = "28.06.2025"
 
 # Global cache
 DEBUG_MODE = False
-DISABLE_HIBERNATION_CALL = True  # No more accidental hibernations durring development lol
+DISABLE_HIBERNATION_CALL = False  # No more accidental hibernations durring development lol
 
 FPS_Count_Sum = 0
 Keybinds_enabled = True  # Set to False to disable keybinds
