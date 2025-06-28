@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox
 import subprocess
 import base64
 import logging
+import os
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 from modules.b64assets import APP_ICON
 VERSION = "1.9-DEV"
@@ -151,6 +152,15 @@ def countdown(label: tk.Label, progress: ttk.Progressbar):
 
     update_time()
 
+def current_os():
+    '''Function to get the current operating system name'''
+    os_name = os.name
+    if os_name == 'nt':
+        return "Windows"
+    if os_name == 'posix':
+        return "Linux"
+    return "Unknown OS"
+
 # Function to load a Base64 image as application icon
 def load_base64_image(base64_data: str):
     '''Function to load a Base64 image and return it as a PhotoImage object'''
@@ -244,16 +254,27 @@ version_label = tk.Label(
 )
 version_label.place(relx=1.0, rely=1.0, anchor="se", x=-8, y=0)
 
-# Check hibernation before starting
-if not check_hibernate_support():
-    logging.error("Hibernation is not available on this system.")
-    messagebox.showerror("Error",
-        "Hibernation is not available on this system.\n"
-        "The program will close. Please check if your\n"
-        "system supports hibernation.")
+if current_os() != "Windows":
+    logging.error(
+        "Detected operating system: %s. This application is designed for Windows only.",
+        current_os()
+    )
+    messagebox.showerror(
+        "Error",
+        "This application can only be run on Windows systems."
+    )
     root.destroy()
 else:
-    countdown(time_label, progress_bar)
+    # Check hibernation before starting (only on Windows)
+    if not check_hibernate_support():
+        logging.error("Hibernation is not available on this system.")
+        messagebox.showerror("Error",
+            "Hibernation is not available on this system.\n"
+            "The program will close. Please check if your\n"
+            "system supports hibernation.")
+        root.destroy()
+    else:
+        countdown(time_label, progress_bar)
 
 root.mainloop()
 
