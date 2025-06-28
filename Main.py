@@ -2,6 +2,7 @@
 This application automatically puts the system into hibernation after a specified countdown.'''
 # pylint: disable = W0718
 # pylint: disable = C0103
+from logging import config
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -52,17 +53,16 @@ FRAME_STYLE = "groove"
 # Load config: overrides defaults if present, creates config file if missing
 def load_config_from_file():
     '''Load HIBERNATION_TIME and TARGET_FPS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
-    global HIBERNATION_TIME, TARGET_FPS
-    username = getuser()
-    logging.info("Current user: %s", username)
     config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
     config_file = os.path.join(config_dir, "config.json")
+    logging.debug("Config directory: %s", config_file)
     defaults = {
         'HIBERNATION_TIME': HIBERNATION_TIME,
         'TARGET_FPS': TARGET_FPS
     }
-    hib_time = HIBERNATION_TIME
-    target_fps = TARGET_FPS
+    hib_time = defaults['HIBERNATION_TIME']
+    target_fps = defaults['TARGET_FPS']
+
     if not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
         logging.info("Created config directory: %s", config_dir)
@@ -76,17 +76,26 @@ def load_config_from_file():
                 data = json.load(f)
             hib_time = data.get('HIBERNATION_TIME', hib_time)
             target_fps = data.get('TARGET_FPS', target_fps)
-            if isinstance(hib_time, int):
-                HIBERNATION_TIME = hib_time
-                logging.info("Loaded HIBERNATION_TIME from config: %s", HIBERNATION_TIME)
-            if isinstance(target_fps, int):
-                TARGET_FPS = target_fps
-                logging.info("Loaded TARGET_FPS from config: %s", TARGET_FPS)
         except Exception as e:
             logging.warning("Failed to load config.json, using defaults. Error: %s", e)
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(defaults, f, indent=4)
             logging.info("Recreated config file with defaults: %s", config_file)
+            hib_time = defaults['HIBERNATION_TIME']
+            target_fps = defaults['TARGET_FPS']
+
+    # Validate hib_time
+    if hib_time is None or not isinstance(hib_time, int) or hib_time <= 0:
+        logging.warning("HIBERNATION_TIME is set to %s, which is invalid. Using default value of %d seconds.", hib_time, defaults['HIBERNATION_TIME'])
+        hib_time = defaults['HIBERNATION_TIME']
+
+    # Validate target_fps
+    if target_fps is None or not isinstance(target_fps, int) or target_fps <= 0:
+        logging.warning("TARGET_FPS is set to %s, which is invalid. Using default value of %d.", target_fps, defaults['TARGET_FPS'])
+        target_fps = defaults['TARGET_FPS']
+
+    logging.info("Loaded HIBERNATION_TIME from config: %s", hib_time)
+    logging.info("Loaded TARGET_FPS from config: %s", target_fps)
     return hib_time, target_fps
 
 # Global variable for caching hibernation support result
