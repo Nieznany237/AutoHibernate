@@ -11,8 +11,19 @@ import logging
 import os
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 from modules.b64assets import APP_ICON
+from getpass import getuser
+import json
+
 VERSION = "1.9-DEV"
 RELEASE_DATE = "06.06.2025"
+
+# Global cache
+DEBUG_MODE = False
+DISABLE_HIBERNATION_CALL = True  # No more accidental hibernations durring development lol
+
+FPS_Count_Sum = 0
+Keybinds_enabled = True  # Set to False to disable keybinds
+App_Start_time_DEBUG = time.time()  # Start measuring time
 
 # Logger configuration
 logging.basicConfig(
@@ -24,16 +35,9 @@ logging.basicConfig(
     ]
 )
 
-# Global cache
-DEBUG_MODE = False
-FPS_Count_Sum = 0
-Keybinds_enabled = True  # Set to False to disable keybinds
-App_Start_time_DEBUG = time.time()  # Start measuring time
-
 if logging.getLogger().isEnabledFor(logging.DEBUG):
     logging.debug("Debug mode is enabled. Debug messages will be logged.")
     DEBUG_MODE = True
-
 
 # Application settings
 HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
@@ -43,6 +47,46 @@ FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
 BUTTON_FONT = ("Helvetica", 10)
 BUTTON_STYLE = "raised"
 FRAME_STYLE = "groove"
+
+# Load config: overrides defaults if present, creates config file if missing
+def load_config_from_file():
+    '''Load HIBERNATION_TIME and TARGET_FPS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
+    global HIBERNATION_TIME, TARGET_FPS
+    username = getuser()
+    logging.info(f"Current user: {username}")
+    config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
+    config_file = os.path.join(config_dir, "config.json")
+    defaults = {
+        'HIBERNATION_TIME': HIBERNATION_TIME,
+        'TARGET_FPS': TARGET_FPS
+    }
+    hib_time = HIBERNATION_TIME
+    target_fps = TARGET_FPS
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+        logging.info(f"Created config directory: {config_dir}")
+    if not os.path.exists(config_file):
+        with open(config_file, 'w') as f:
+            json.dump(defaults, f, indent=4)
+        logging.info(f"Created config file with defaults: {config_file}")
+    else:
+        try:
+            with open(config_file, 'r') as f:
+                data = json.load(f)
+            hib_time = data.get('HIBERNATION_TIME', hib_time)
+            target_fps = data.get('TARGET_FPS', target_fps)
+            if isinstance(hib_time, int):
+                HIBERNATION_TIME = hib_time
+                logging.info(f"Loaded HIBERNATION_TIME from config: {HIBERNATION_TIME}")
+            if isinstance(target_fps, int):
+                TARGET_FPS = target_fps
+                logging.info(f"Loaded TARGET_FPS from config: {TARGET_FPS}")
+        except Exception as e:
+            logging.warning(f"Failed to load config.json, using defaults. Error: {e}")
+            with open(config_file, 'w') as f:
+                json.dump(defaults, f, indent=4)
+            logging.info(f"Recreated config file with defaults: {config_file}")
+    return hib_time, target_fps
 
 # Global variable for caching hibernation support result
 _hibernate_support_cache = None
@@ -94,7 +138,13 @@ def hibernate_system_call():
     '''Function to call system hibernation and handle errors'''
     time_label.config(text="Hibernating...\n")
     logging.info("Calling system hibernation")
+    if DISABLE_HIBERNATION_CALL:
+        logging.info("| Hibernation call is disabled (DISABLE_HIBERNATION_CALL=True). Skipping system call. |")
+        messagebox.showinfo("Info", "Hibernation is disabled (test mode). The system will not hibernate.")
+        root.destroy()
+        return
     try:
+        '''This function attempts to call system hibernation using subprocess with hidden window (cmd).'''
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
@@ -177,7 +227,9 @@ root.title("Automatic Hibernation")
 root.geometry("310x180+208+208")
 root.resizable(False, False)
 root.attributes("-topmost", True)
-maximize_minimize_button.hide(root)
+if current_os() == "Windows":
+    maximize_minimize_button.hide(root)
+    HIBERNATION_TIME, TARGET_FPS = load_config_from_file()
 
 root.after(100, root.focus_force)  # Force focus after a short delay
 # Key bindings
