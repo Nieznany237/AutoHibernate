@@ -2,7 +2,7 @@
 This application automatically puts the system into hibernation after a specified countdown.'''
 # pylint: disable = W0718
 # pylint: disable = C0103
-from logging import config
+import logging
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -11,12 +11,11 @@ import base64
 import logging
 import os
 import json
-from getpass import getuser
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 from modules.b64assets import APP_ICON
 
-VERSION = "1.9"
-RELEASE_DATE = "28.06.2025"
+VERSION = "1.10.0"
+RELEASE_DATE = "04.07.2025"
 
 # Global cache
 DEBUG_MODE = False
@@ -50,18 +49,20 @@ BUTTON_FONT = ("Helvetica", 10)
 BUTTON_STYLE = "raised"
 FRAME_STYLE = "groove"
 
-# Load config: overrides defaults if present, creates config file if missing
+# Load config: overrides defaults if present, creates config file if missing or invalid
 def load_config_from_file():
-    '''Load HIBERNATION_TIME and TARGET_FPS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
+    '''Load HIBERNATION_TIME, TARGET_FPS, and SHOW_DECIMAL_SECONDS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
     config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
     config_file = os.path.join(config_dir, "config.json")
     logging.debug("Config directory: %s", config_file)
     defaults = {
         'HIBERNATION_TIME': HIBERNATION_TIME,
-        'TARGET_FPS': TARGET_FPS
+        'TARGET_FPS': TARGET_FPS,
+        'SHOW_DECIMAL_SECONDS': False,
     }
     hib_time = defaults['HIBERNATION_TIME']
     target_fps = defaults['TARGET_FPS']
+    show_decimal_seconds = defaults['SHOW_DECIMAL_SECONDS']
 
     if not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
@@ -76,6 +77,7 @@ def load_config_from_file():
                 data = json.load(f)
             hib_time = data.get('HIBERNATION_TIME', hib_time)
             target_fps = data.get('TARGET_FPS', target_fps)
+            show_decimal_seconds = data.get('SHOW_DECIMAL_SECONDS', show_decimal_seconds)
         except Exception as e:
             logging.warning("Failed to load config.json, using defaults. Error: %s", e)
             with open(config_file, 'w', encoding='utf-8') as f:
@@ -83,6 +85,7 @@ def load_config_from_file():
             logging.info("Recreated config file with defaults: %s", config_file)
             hib_time = defaults['HIBERNATION_TIME']
             target_fps = defaults['TARGET_FPS']
+            show_decimal_seconds = defaults['SHOW_DECIMAL_SECONDS']
 
     # Validate hib_time
     if hib_time is None or not isinstance(hib_time, int) or hib_time <= 0:
@@ -94,9 +97,15 @@ def load_config_from_file():
         logging.warning("TARGET_FPS is set to %s, which is invalid. Using default value of %d.", target_fps, defaults['TARGET_FPS'])
         target_fps = defaults['TARGET_FPS']
 
+    # Validate show_decimal_seconds
+    if not isinstance(show_decimal_seconds, bool):
+        logging.warning("SHOW_DECIMAL_SECONDS is set to %s, which is invalid. Using default value of %s.", show_decimal_seconds, defaults['SHOW_DECIMAL_SECONDS'])
+        show_decimal_seconds = defaults['SHOW_DECIMAL_SECONDS']
+
     logging.info("Loaded HIBERNATION_TIME from config: %s", hib_time)
     logging.info("Loaded TARGET_FPS from config: %s", target_fps)
-    return hib_time, target_fps
+    logging.info("Loaded SHOW_DECIMAL_SECONDS from config: %s", show_decimal_seconds)
+    return hib_time, target_fps, show_decimal_seconds
 
 # Global variable for caching hibernation support result
 _hibernate_support_cache = None
@@ -149,6 +158,7 @@ def hibernate_system_call():
     time_label.config(text="Hibernating...\n")
     logging.info("Calling system hibernation")
     if DISABLE_HIBERNATION_CALL:
+        terminate_countdown()
         logging.info("| Hibernation call is disabled (DISABLE_HIBERNATION_CALL=True). Skipping system call. |")
         messagebox.showinfo("Info", "Hibernation is disabled (test mode). The system will not hibernate.")
         root.destroy()
@@ -207,10 +217,13 @@ def countdown(label: tk.Label, progress: ttk.Progressbar):
         remaining_time = max(total_time - time_elapsed, 0)
         remaining_seconds = int(remaining_time)
 
-        # Update text only when seconds change
-        if remaining_seconds != last_displayed_time:
-            label.config(text=f"System will hibernate in\n{remaining_seconds} seconds")
-            last_displayed_time = remaining_seconds
+        # Update text only when seconds change (or always if decimals enabled)
+        if SHOW_DECIMAL_SECONDS:
+            label.config(text=f"System will hibernate in\n{remaining_time:.1f} seconds")
+        else:
+            if remaining_seconds != last_displayed_time:
+                label.config(text=f"System will hibernate in\n{int(remaining_seconds)} seconds")
+                last_displayed_time = remaining_seconds
 
         # Progressbar updated every frame (for smoothness)
         progress["value"] = (time_elapsed / total_time) * 100
@@ -255,7 +268,7 @@ root.resizable(False, False)
 root.attributes("-topmost", True)
 if current_os() == "Windows":
     maximize_minimize_button.hide(root)
-    HIBERNATION_TIME, TARGET_FPS = load_config_from_file()
+    HIBERNATION_TIME, TARGET_FPS, SHOW_DECIMAL_SECONDS = load_config_from_file()
 root.protocol("WM_DELETE_WINDOW", on_closing)
 
 root.after(100, root.focus_force)  # Force focus after a short delay
