@@ -2,33 +2,32 @@
 This application automatically puts the system into hibernation after a specified countdown.'''
 # pylint: disable = W0718
 # pylint: disable = C0103
+import sys
 import logging
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
 import base64
-import logging
 import os
 import json
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 from modules.b64assets import APP_ICON
 
-VERSION = "1.10.0"
-RELEASE_DATE = "04.07.2025"
+VERSION = "1.11.0"
+RELEASE_DATE = "11.09.2025"
 
 # Global cache
-DEBUG_MODE = False
-DISABLE_HIBERNATION_CALL = False  # No more accidental hibernations durring development lol
+DEV_MODE = True  # No more accidental hibernations durring development lol
+LOGGING_LEVEL = "INFO" # INFO, DEBUG, WARNING, ERROR, CRITICAL
 
 FPS_Count_Sum = 0
 Keybinds_enabled = True  # Set to False to disable keybinds
-App_Start_time_DEBUG = time.time()  # Start measuring time
 countdown_terminated = False
 
 # Logger configuration
 logging.basicConfig(
-    level=logging.INFO, # INFO, DEBUG, WARNING, ERROR, CRITICAL
+    level=getattr(logging, LOGGING_LEVEL),
     format="%(asctime)s - [%(levelname)s] - %(message)s",
     handlers=[
         #logging.FileHandler("AutoHibernate.log", encoding="utf-8"),
@@ -36,18 +35,35 @@ logging.basicConfig(
     ]
 )
 
-if logging.getLogger().isEnabledFor(logging.DEBUG):
-    logging.debug("Debug mode is enabled. Debug messages will be logged.")
-    DEBUG_MODE = True
+if DEV_MODE:
+    logging.warning("Development mode is enabled and so Hibernation call is disabled. Please disable it before pushing into production!\n")
 
 # Application settings
 HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
-TARGET_FPS = 20  # Target: 20 FPS (for smoothness)
+TARGET_FPS = 20  # Target: 20 FPS
 DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
-BUTTON_FONT = ("Helvetica", 10)
-BUTTON_STYLE = "raised"
-FRAME_STYLE = "groove"
+BUTTON_FONT = ("Helvetica", 10) # Button font
+BUTTON_STYLE = "raised" # Button style
+FRAME_STYLE = "groove" # Frame style
+
+def parse_arguments():
+    """Check command line arguments for custom hibernation time."""
+    global HIBERNATION_TIME
+    args = sys.argv
+    if len(args) >= 3 and args[1] in ("/t", "-t", "--time"):
+        try:
+            custom_time = int(args[2])
+            if custom_time > 0:
+                HIBERNATION_TIME = custom_time
+                logging.info("Using hibernation time from arguments: %d", HIBERNATION_TIME)
+            elif custom_time == 0:
+                HIBERNATION_TIME = 0.1
+                logging.warning("Custom time [arg] is 0. Setting hibernation time to minimum of 0.1 second.")
+            else:
+                logging.warning("Custom time [arg] is less than 0. Using default settings")
+        except ValueError:
+            logging.error("Invalid argument for time: %s", args[2])
 
 # Load config: overrides defaults if present, creates config file if missing or invalid
 def load_config_from_file():
@@ -157,9 +173,9 @@ def hibernate_system_call():
     '''Function to call system hibernation and handle errors'''
     time_label.config(text="Hibernating...\n")
     logging.info("Calling system hibernation")
-    if DISABLE_HIBERNATION_CALL:
+    if DEV_MODE:
         terminate_countdown()
-        logging.info("| Hibernation call is disabled (DISABLE_HIBERNATION_CALL=True). Skipping system call. |")
+        logging.info("| Hibernation call is disabled (DEV_MODE=True). Skipping system call. |")
         messagebox.showinfo("Info", "Hibernation is disabled (test mode). The system will not hibernate.")
         root.destroy()
         return
@@ -269,6 +285,7 @@ root.attributes("-topmost", True)
 if current_os() == "Windows":
     maximize_minimize_button.hide(root)
     HIBERNATION_TIME, TARGET_FPS, SHOW_DECIMAL_SECONDS = load_config_from_file()
+    parse_arguments()
 root.protocol("WM_DELETE_WINDOW", on_closing)
 
 root.after(100, root.focus_force)  # Force focus after a short delay
@@ -341,7 +358,7 @@ hibernate_button.pack(side=tk.LEFT, padx=(0, 3), pady=(0, 3))
 
 # Footer with version info
 version_label = tk.Label(
-    root, text=f"By @Nieznany237 | Version {VERSION} Released {RELEASE_DATE}",
+    root, text=f"Release {VERSION} ({RELEASE_DATE}) | by @Nieznany237",
     font=FOOTER_FONT, fg="#7E7E7E", anchor="se", justify="right"
 )
 version_label.place(relx=1.0, rely=1.0, anchor="se", x=-8, y=0)
@@ -369,15 +386,3 @@ else:
         countdown(time_label, progress_bar)
 
 root.mainloop()
-
-# DEBUG
-if DEBUG_MODE is True:
-    App_End_time_DEBUG = time.time()
-    try:
-        debug_elapsed_time = App_End_time_DEBUG - App_Start_time_DEBUG # pylint: disable=E0606
-    except NameError:
-        debug_elapsed_time = 0.0
-    actual_fps = FPS_Count_Sum / HIBERNATION_TIME
-    logging.debug("Application runtime: %.4f seconds", debug_elapsed_time)
-    logging.debug("Average FPS: %.1f", actual_fps)
-    logging.debug("Total FPS count: %d", FPS_Count_Sum)
