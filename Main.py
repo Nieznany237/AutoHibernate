@@ -1,10 +1,10 @@
 '''Automatic Hibernation Application
 This application automatically puts the system into hibernation after a specified countdown.'''
-# pylint: disable = W0718
-# pylint: disable = C0103
+
 import sys
 import logging
 import time
+import ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
@@ -14,14 +14,13 @@ import json
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 from modules.b64assets import APP_ICON
 
-VERSION = "1.11.0"
-RELEASE_DATE = "11.09.2025"
+VERSION = "1.12.0"
+RELEASE_DATE = "25.10.2026"
 
 # Global cache
 DEV_MODE = True  # No more accidental hibernations durring development lol
 LOGGING_LEVEL = "INFO" # INFO, DEBUG, WARNING, ERROR, CRITICAL
 
-FPS_Count_Sum = 0
 Keybinds_enabled = True  # Set to False to disable keybinds
 countdown_terminated = False
 
@@ -134,27 +133,16 @@ _hibernate_support_cache = None
 # Function to check hibernation support
 def check_hibernate_support():
     """Function to check if hibernation is supported on the system"""
-    global _hibernate_support_cache #pylint: disable=W0603
+    global _hibernate_support_cache
     # Check if result is already cached to avoid redundant checks
     if _hibernate_support_cache is not None:
         return _hibernate_support_cache
 
     try:
-        # Run the 'powercfg /a' command to get available sleep states
-        result = subprocess.run(
-            ["powercfg", "/a"],
-            capture_output=True,
-            text=True,
-            check=True
-        ).stdout
-        # Split output to find the relevant section
-        split_text = result.split(
-            "The following sleep states are available on this system:"
-        )
-        # Check if "Hibernate" is listed as available
-        hibernate_supported = (
-            "Hibernate" in split_text[1]
-        )
+        hibernate_check = ctypes.WinDLL("powrprof.dll").IsPwrHibernateAllowed
+        hibernate_check.argtypes = []
+        hibernate_check.restype = ctypes.c_ubyte
+        hibernate_supported = bool(hibernate_check())
         logging.info(
             "Hibernation supported: %s",
             hibernate_supported
@@ -162,14 +150,8 @@ def check_hibernate_support():
         # Cache the result for future calls
         _hibernate_support_cache = hibernate_supported
         return hibernate_supported
-    except subprocess.CalledProcessError as e:
-        # Log and cache failure if the command fails
-        logging.exception("Error checking hibernation - %s", e)
-        _hibernate_support_cache = False
-        return False
-    except IndexError as e:
-        # Log and cache failure if output format is unexpected
-        logging.exception("Unexpected output format from powercfg - %s", e)
+    except (AttributeError, OSError) as e:
+        logging.exception("Error checking hibernation support - %s", e)
         _hibernate_support_cache = False
         return False
 
@@ -221,21 +203,19 @@ def on_closing():
 def countdown(label: tk.Label, progress: ttk.Progressbar):
     '''Function to handle countdown to hibernation with progress bar update, with ability to terminate.'''
     total_time = HIBERNATION_TIME
-    step_time = 1.0 / TARGET_FPS
+    update_interval_ms = max(1, round(1000 / TARGET_FPS))
     last_displayed_time = -1
-    start_time = time.perf_counter()
+    deadline = time.monotonic() + total_time
 
     def update_time():
-        global FPS_Count_Sum  # pylint: disable=W0603
         nonlocal last_displayed_time
         if countdown_terminated:
             label.config(text="Countdown terminated.")
             progress["value"] = 0
             return
 
-        current_time = time.perf_counter()
-        time_elapsed = current_time - start_time
-        remaining_time = max(total_time - time_elapsed, 0)
+        remaining_time = max(deadline - time.monotonic(), 0)
+        time_elapsed = total_time - remaining_time
         remaining_seconds = int(remaining_time)
 
         # Update text only when seconds change (or always if decimals enabled)
@@ -247,15 +227,10 @@ def countdown(label: tk.Label, progress: ttk.Progressbar):
                 last_displayed_time = remaining_seconds
 
         # Progressbar updated every frame (for smoothness)
-        progress["value"] = (time_elapsed / total_time) * 100
+        progress["value"] = min((time_elapsed / total_time) * 100, 100)
 
         if remaining_time > 0:
-            # Calculate exact time to next frame (delay correction)
-            next_frame_time = start_time + (FPS_Count_Sum + 1) * step_time
-            delay = max(int((next_frame_time - current_time) * 1000), 0)
-
-            root.after(delay, update_time)
-            FPS_Count_Sum += 1
+            root.after(update_interval_ms, update_time)
         else:
             progress["value"] = 100
             hibernate_system_call()
@@ -300,11 +275,11 @@ root.protocol("WM_DELETE_WINDOW", on_closing)
 
 root.after(100, root.focus_force)  # Force focus after a short delay
 # Key bindings
-def on_return(event): # pylint: disable=unused-argument
+def on_return(event):
     '''Function to handle Return key press'''
     hibernate_system_call()
 
-def on_escape(event): # pylint: disable=unused-argument
+def on_escape(event):
     '''Function to handle Escape key press'''
     root.destroy()
 
