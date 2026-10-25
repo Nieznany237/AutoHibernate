@@ -36,7 +36,7 @@ logging.basicConfig(
 )
 
 if DEV_MODE:
-    logging.warning("Development mode is enabled and so Hibernation call is disabled. Please disable it before pushing into production!\n")
+    logging.warning("Development mode is enabled and so Hibernation call is disabled. Please disable it before pushing into production!\n\n")
 
 # Application settings
 HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
@@ -68,7 +68,12 @@ def parse_arguments():
 # Load config: overrides defaults if present, creates config file if missing or invalid
 def load_config_from_file():
     '''Load HIBERNATION_TIME, TARGET_FPS, and SHOW_DECIMAL_SECONDS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
-    config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
+    #config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
+    config_dir = os.path.join(
+        os.getenv("APPDATA"),
+        "Nieznany237",
+        "AutoHibernate"
+    )
     config_file = os.path.join(config_dir, "config.json")
     logging.debug("Config directory: %s", config_file)
     defaults = {
@@ -128,7 +133,7 @@ _hibernate_support_cache = None
 
 # Function to check hibernation support
 def check_hibernate_support():
-    '''Function to check if hibernation is supported on the system'''
+    """Function to check if hibernation is supported on the system"""
     global _hibernate_support_cache #pylint: disable=W0603
     # Check if result is already cached to avoid redundant checks
     if _hibernate_support_cache is not None:
@@ -176,7 +181,7 @@ def hibernate_system_call():
     if DEV_MODE:
         terminate_countdown()
         logging.info("| Hibernation call is disabled (DEV_MODE=True). Skipping system call. |")
-        messagebox.showinfo("Info", "Hibernation is disabled (test mode). The system will not hibernate.")
+        # messagebox.showinfo("Info", "Hibernation is disabled (test mode). The system will not hibernate.")
         root.destroy()
         return
     try:
@@ -277,8 +282,13 @@ def load_base64_image(base64_data: str):
         return None
 
 # Create main application window
+if DEV_MODE:
+    Program_title = "Automatic Hibernation [DEV MODE]"
+else:
+    Program_title = "Automatic Hibernation"
+
 root = tk.Tk()
-root.title("Automatic Hibernation")
+root.title(Program_title)
 root.geometry("310x180+208+208")
 root.resizable(False, False)
 root.attributes("-topmost", True)
