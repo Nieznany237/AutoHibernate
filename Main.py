@@ -31,11 +31,11 @@ logging.basicConfig(
 )
 
 if DEV_MODE:
-    logging.warning("Development mode is enabled and so Hibernation call is disabled. Please disable it before pushing into production!\n\n")
+    logging.warning("Development mode is enabled and Hibernation call is disabled. Please disable it before pushing into production!\n\n")
 
 # Application settings
 DEFAULT_HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
-DEFAULT_TARGET_FPS = 20  # Target: 20 FPS
+DEFAULT_TARGET_FPS = 25  # Target: 20 FPS
 KEYBINDS_ENABLED = True  # Set to False to disable keybinds
 DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
@@ -63,7 +63,8 @@ def parse_arguments(args, default_time):
 # Load config: overrides defaults if present, creates config file if missing or invalid
 def load_config_from_file():
     '''Load HIBERNATION_TIME, TARGET_FPS, and SHOW_DECIMAL_SECONDS from config.json, create file/folder if missing or invalid. Returns the loaded or default values.'''
-    #config_dir = os.path.join(os.path.expanduser("~"), "NiezPrograms", "AutoHibernate")
+    
+    # C:\Users\{USERNAME}\AppData\Roaming\Nieznany237\AutoHibernate
     config_dir = os.path.join(
         os.getenv("APPDATA"),
         "Nieznany237",
