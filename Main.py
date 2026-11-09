@@ -8,16 +8,14 @@ import ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
-import base64
 import os
 import json
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
-from modules.b64assets import APP_ICON
 
-VERSION = "1.12.0"
-RELEASE_DATE = "25.10.2026"
+VERSION = "1.12.1"
+RELEASE_DATE = "09.11.2026"
 
-DEV_MODE = False  # No more accidental hibernations durring development lol
+DEV_MODE = True  # No more accidental hibernations durring development lol
 LOGGING_LEVEL = "INFO" # INFO, DEBUG, WARNING, ERROR, CRITICAL
 
 # Logger configuration
@@ -186,9 +184,7 @@ class AutoHibernateApp:
             self.root.bind("<Escape>", self.on_escape)
             self.root.bind("<Return>", self.on_return)
 
-        app_icon = load_base64_image(APP_ICON)
-        if app_icon:
-            self.root.iconphoto(True, app_icon)
+        set_window_icon(self.root) 
 
         main_app_frame = tk.LabelFrame(
             self.root,
@@ -361,15 +357,22 @@ def current_os():
         return "Linux"
     return "Unknown OS"
 
-# Function to load a Base64 image as application icon
-def load_base64_image(base64_data: str):
-    '''Function to load a Base64 image and return it as a PhotoImage object'''
+def set_window_icon(root):
+    """Sets the window icon at runtime"""
     try:
-        image_bytes = base64.b64decode(base64_data.split(',')[1])
-        return tk.PhotoImage(data=image_bytes)
-    except Exception as e:
-        logging.exception("Error loading image %s", e)
-        return None
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            icon_path = os.path.join(os.path.dirname(sys.executable), 'icon.ico')
+            if not os.path.exists(icon_path):
+                icon_path = os.path.join(os.getcwd(), 'icon.ico')
+        else:
+            # Running as Python script
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon.ico')
+        
+        if os.path.exists(icon_path):
+            root.iconbitmap(icon_path)
+    except Exception:
+        logging.exception("Failed to set app icon")
 
 def main():
     """Create the application and start the Tk event loop."""
