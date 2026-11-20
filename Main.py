@@ -8,11 +8,12 @@ import ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
+import math
 import os
 import json
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 
-VERSION = "1.12.1"
+VERSION = "1.12.2 DEV"
 RELEASE_DATE = "09.11.2026"
 
 DEV_MODE = True  # No more accidental hibernations durring development lol
@@ -103,7 +104,11 @@ def load_config_from_file():
             show_decimal_seconds = defaults['SHOW_DECIMAL_SECONDS']
 
     # Validate hib_time
-    if hib_time is None or not isinstance(hib_time, int) or hib_time <= 0:
+    if (
+        hib_time is None
+        or type(hib_time) is not int
+        or hib_time <= 0
+    ):
         logging.warning("HIBERNATION_TIME is set to %s, which is invalid. Using default value of %d seconds.", hib_time, defaults['HIBERNATION_TIME'])
         hib_time = defaults['HIBERNATION_TIME']
 
@@ -324,7 +329,7 @@ class AutoHibernateApp:
 
             remaining_time = max(deadline - time.monotonic(), 0)
             time_elapsed = total_time - remaining_time
-            remaining_seconds = int(remaining_time)
+            remaining_seconds = math.ceil(remaining_time)
 
             if self.show_decimal_seconds:
                 self.time_label.config(
