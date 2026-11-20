@@ -13,8 +13,8 @@ import os
 import json
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 
-VERSION = "1.12.2 DEV"
-RELEASE_DATE = "09.11.2026"
+VERSION = "1.12.2"
+RELEASE_DATE = "20.11.2026"
 
 # $env:AUTOHIBERNATE_DEV = "1" Enabled
 # $env:AUTOHIBERNATE_DEV = "0" Disabled
@@ -296,7 +296,7 @@ class AutoHibernateApp:
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             subprocess.run(
-                ["shutdown", "/xxh"],
+                ["shutdown", "/h"],
                 check=True,
                 startupinfo=startupinfo,
                 creationflags=subprocess.CREATE_NO_WINDOW
