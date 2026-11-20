@@ -8,14 +8,17 @@ import ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
+import math
 import os
 import json
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 
-VERSION = "1.12.1"
-RELEASE_DATE = "09.11.2026"
+VERSION = "1.12.2"
+RELEASE_DATE = "20.11.2026"
 
-DEV_MODE = True  # No more accidental hibernations durring development lol
+# $env:AUTOHIBERNATE_DEV = "1" Enabled
+# $env:AUTOHIBERNATE_DEV = "0" Disabled
+DEV_MODE = os.getenv("AUTOHIBERNATE_DEV", "0") == "1"  # No more accidental hibernations during development lol
 LOGGING_LEVEL = "INFO" # INFO, DEBUG, WARNING, ERROR, CRITICAL
 
 # Logger configuration
@@ -29,11 +32,11 @@ logging.basicConfig(
 )
 
 if DEV_MODE:
-    logging.warning("Development mode is enabled and Hibernation call is disabled. Please disable it before pushing into production!\n\n")
+    logging.warning("Development mode is enabled and Hibernation call is disabled.")
 
 # Application settings
 DEFAULT_HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
-DEFAULT_TARGET_FPS = 25  # Target: 20 FPS
+DEFAULT_TARGET_FPS = 25  # Default frame rate
 KEYBINDS_ENABLED = True  # Set to False to disable keybinds
 DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
@@ -69,7 +72,7 @@ def load_config_from_file():
         "AutoHibernate"
     )
     config_file = os.path.join(config_dir, "config.json")
-    logging.debug("Config directory: %s", config_file)
+    logging.debug("Config file path: %s", config_file)
     defaults = {
         'HIBERNATION_TIME': DEFAULT_HIBERNATION_TIME,
         'TARGET_FPS': DEFAULT_TARGET_FPS,
@@ -103,12 +106,20 @@ def load_config_from_file():
             show_decimal_seconds = defaults['SHOW_DECIMAL_SECONDS']
 
     # Validate hib_time
-    if hib_time is None or not isinstance(hib_time, int) or hib_time <= 0:
+    if (
+        hib_time is None
+        or type(hib_time) is not int
+        or hib_time <= 0
+    ):
         logging.warning("HIBERNATION_TIME is set to %s, which is invalid. Using default value of %d seconds.", hib_time, defaults['HIBERNATION_TIME'])
         hib_time = defaults['HIBERNATION_TIME']
 
     # Validate target_fps
-    if target_fps is None or not isinstance(target_fps, int) or target_fps <= 0:
+    if (
+        target_fps is None
+        or type(target_fps) is not int
+        or target_fps <= 0
+    ):
         logging.warning("TARGET_FPS is set to %s, which is invalid. Using default value of %d.", target_fps, defaults['TARGET_FPS'])
         target_fps = defaults['TARGET_FPS']
 
@@ -132,6 +143,7 @@ class AutoHibernateApp:
         self.target_fps = DEFAULT_TARGET_FPS
         self.show_decimal_seconds = False
         self.countdown_terminated = False
+        self.hibernating = False
         self.hibernate_support_cache = None
         self.time_label = None
         self.progress_bar = None
@@ -262,10 +274,20 @@ class AutoHibernateApp:
 
     def hibernate_system_call(self):
         """Request system hibernation and close the application."""
-        self.time_label.config(text="Hibernating...\n")
+        if self.hibernating:
+            return
+        self.hibernating = True
+        self.countdown_terminated = True
+
+        if self.countdown_after_id is not None:
+            self.root.after_cancel(self.countdown_after_id)
+            self.countdown_after_id = None
+
         logging.info("Calling system hibernation")
+        self.time_label.config(text="Hibernating...\n")
+        self.root.update_idletasks()
+
         if self.dev_mode:
-            self.countdown_terminated = True
             logging.info("| Hibernation call is disabled (DEV_MODE=True). Skipping system call. |")
             self.root.destroy()
             return
@@ -280,15 +302,36 @@ class AutoHibernateApp:
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
         except subprocess.CalledProcessError as error:
-            error_message = f"System error: exit code {error.returncode}"
-            logging.error(error_message)
-            messagebox.showerror("Error", error_message, parent=self.root)
+            error_message = (
+                "Windows could not enter hibernation.\n"
+                f"The shutdown command exited with code {error.returncode}.\n\n"
+                "Hibernation may be disabled or unavailable. Check Windows "
+                "Power Options and make sure hibernation is enabled.\n\n"
+                f"{error}"
+            )
+            logging.error(
+                "Hibernation request failed with exit code %s",
+                error.returncode
+            )
+            messagebox.showerror(
+                "Hibernation Failed",
+                error_message,
+                parent=self.root
+            )
         except Exception as error:
-            error_message = f"An error occurred while attempting to hibernate: {error}"
-            logging.exception(error_message)
-            messagebox.showerror("Error", error_message, parent=self.root)
+            error_message = (
+                "The hibernation request could not be started.\n\n"
+                f"Technical details: {error}"
+            )
+            logging.exception("An unexpected error occurred while attempting to hibernate")
+            messagebox.showerror(
+                "Hibernation Failed",
+                error_message,
+                parent=self.root
+            )
         finally:
-            self.root.destroy()
+            if self.root.winfo_exists():
+                self.root.destroy()
 
     def on_closing(self):
         """Stop pending countdown work and close the window."""
@@ -297,7 +340,8 @@ class AutoHibernateApp:
         if self.countdown_after_id is not None:
             self.root.after_cancel(self.countdown_after_id)
             self.countdown_after_id = None
-        self.root.destroy()
+        if self.root.winfo_exists():
+            self.root.destroy()
 
     def on_return(self, _event):
         del _event
@@ -324,7 +368,7 @@ class AutoHibernateApp:
 
             remaining_time = max(deadline - time.monotonic(), 0)
             time_elapsed = total_time - remaining_time
-            remaining_seconds = int(remaining_time)
+            remaining_seconds = math.ceil(remaining_time)
 
             if self.show_decimal_seconds:
                 self.time_label.config(
