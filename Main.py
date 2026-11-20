@@ -32,7 +32,7 @@ logging.basicConfig(
 )
 
 if DEV_MODE:
-    logging.warning("Development mode is enabled and Hibernation call is disabled. Please disable it before pushing into production!\n\n")
+    logging.warning("Development mode is enabled and Hibernation call is disabled.")
 
 # Application settings
 DEFAULT_HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
@@ -72,7 +72,7 @@ def load_config_from_file():
         "AutoHibernate"
     )
     config_file = os.path.join(config_dir, "config.json")
-    logging.debug("Config directory: %s", config_file)
+    logging.debug("Config file path: %s", config_file)
     defaults = {
         'HIBERNATION_TIME': DEFAULT_HIBERNATION_TIME,
         'TARGET_FPS': DEFAULT_TARGET_FPS,
@@ -143,6 +143,7 @@ class AutoHibernateApp:
         self.target_fps = DEFAULT_TARGET_FPS
         self.show_decimal_seconds = False
         self.countdown_terminated = False
+        self.hibernating = False
         self.hibernate_support_cache = None
         self.time_label = None
         self.progress_bar = None
@@ -273,33 +274,64 @@ class AutoHibernateApp:
 
     def hibernate_system_call(self):
         """Request system hibernation and close the application."""
+        if self.hibernating:
+            return
+
+        self.hibernating = True
+        self.countdown_terminated = True
+        if self.countdown_after_id is not None:
+            self.root.after_cancel(self.countdown_after_id)
+            self.countdown_after_id = None
+
         self.time_label.config(text="Hibernating...\n")
+        self.root.update_idletasks()
         logging.info("Calling system hibernation")
         if self.dev_mode:
-            self.countdown_terminated = True
             logging.info("| Hibernation call is disabled (DEV_MODE=True). Skipping system call. |")
-            self.root.destroy()
+            if self.root.winfo_exists():
+                self.root.destroy()
             return
 
         try:
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             subprocess.run(
-                ["shutdown", "/h"],
+                ["shutdown", "/xxh"],
                 check=True,
                 startupinfo=startupinfo,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
         except subprocess.CalledProcessError as error:
-            error_message = f"System error: exit code {error.returncode}"
-            logging.error(error_message)
-            messagebox.showerror("Error", error_message, parent=self.root)
+            error_message = (
+                "Windows could not enter hibernation.\n"
+                f"The shutdown command exited with code {error.returncode}.\n\n"
+                "Hibernation may be disabled or unavailable. Check Windows "
+                "Power Options and make sure hibernation is enabled.\n\n"
+                f"{error}"
+            )
+            logging.error(
+                "Hibernation request failed with exit code %s",
+                error.returncode
+            )
+            messagebox.showerror(
+                "Hibernation Failed",
+                error_message,
+                parent=self.root
+            )
         except Exception as error:
-            error_message = f"An error occurred while attempting to hibernate: {error}"
-            logging.exception(error_message)
-            messagebox.showerror("Error", error_message, parent=self.root)
+            error_message = (
+                "The hibernation request could not be started.\n\n"
+                f"Technical details: {error}"
+            )
+            logging.exception("An unexpected error occurred while attempting to hibernate")
+            messagebox.showerror(
+                "Hibernation Failed",
+                error_message,
+                parent=self.root
+            )
         finally:
-            self.root.destroy()
+            if self.root.winfo_exists():
+                self.root.destroy()
 
     def on_closing(self):
         """Stop pending countdown work and close the window."""
@@ -308,7 +340,8 @@ class AutoHibernateApp:
         if self.countdown_after_id is not None:
             self.root.after_cancel(self.countdown_after_id)
             self.countdown_after_id = None
-        self.root.destroy()
+        if self.root.winfo_exists():
+            self.root.destroy()
 
     def on_return(self, _event):
         del _event
