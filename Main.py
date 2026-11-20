@@ -18,7 +18,7 @@ RELEASE_DATE = "09.11.2026"
 
 # $env:AUTOHIBERNATE_DEV = "1" Enabled
 # $env:AUTOHIBERNATE_DEV = "0" Disabled
-DEV_MODE = os.getenv("AUTOHIBERNATE_DEV", "0") == "1"  # No more accidental hibernations durring development lol
+DEV_MODE = os.getenv("AUTOHIBERNATE_DEV", "0") == "1"  # No more accidental hibernations during development lol
 LOGGING_LEVEL = "INFO" # INFO, DEBUG, WARNING, ERROR, CRITICAL
 
 # Logger configuration
@@ -276,20 +276,20 @@ class AutoHibernateApp:
         """Request system hibernation and close the application."""
         if self.hibernating:
             return
-
         self.hibernating = True
         self.countdown_terminated = True
+
         if self.countdown_after_id is not None:
             self.root.after_cancel(self.countdown_after_id)
             self.countdown_after_id = None
 
+        logging.info("Calling system hibernation")
         self.time_label.config(text="Hibernating...\n")
         self.root.update_idletasks()
-        logging.info("Calling system hibernation")
+
         if self.dev_mode:
             logging.info("| Hibernation call is disabled (DEV_MODE=True). Skipping system call. |")
-            if self.root.winfo_exists():
-                self.root.destroy()
+            self.root.destroy()
             return
 
         try:
