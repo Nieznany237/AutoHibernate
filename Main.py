@@ -16,7 +16,9 @@ from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 VERSION = "1.12.2 DEV"
 RELEASE_DATE = "09.11.2026"
 
-DEV_MODE = True  # No more accidental hibernations durring development lol
+# $env:AUTOHIBERNATE_DEV = "1" Enabled
+# $env:AUTOHIBERNATE_DEV = "0" Disabled
+DEV_MODE = os.getenv("AUTOHIBERNATE_DEV", "0") == "1"  # No more accidental hibernations durring development lol
 LOGGING_LEVEL = "INFO" # INFO, DEBUG, WARNING, ERROR, CRITICAL
 
 # Logger configuration
@@ -34,7 +36,7 @@ if DEV_MODE:
 
 # Application settings
 DEFAULT_HIBERNATION_TIME = 10  # Countdown time to hibernation (in seconds)
-DEFAULT_TARGET_FPS = 25  # Target: 20 FPS
+DEFAULT_TARGET_FPS = 25  # Default frame rate
 KEYBINDS_ENABLED = True  # Set to False to disable keybinds
 DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
@@ -113,7 +115,11 @@ def load_config_from_file():
         hib_time = defaults['HIBERNATION_TIME']
 
     # Validate target_fps
-    if target_fps is None or not isinstance(target_fps, int) or target_fps <= 0:
+    if (
+        target_fps is None
+        or type(target_fps) is not int
+        or target_fps <= 0
+    ):
         logging.warning("TARGET_FPS is set to %s, which is invalid. Using default value of %d.", target_fps, defaults['TARGET_FPS'])
         target_fps = defaults['TARGET_FPS']
 
