@@ -2,19 +2,31 @@
 This application automatically puts the system into hibernation after a specified countdown.'''
 
 import sys
+import os
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+if os.name != "nt":
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showerror(
+        "Unsupported operating system",
+        "This application can only run on Windows.",
+    )
+    root.destroy()
+    raise SystemExit(1)
+
 import logging
 import time
 import ctypes
-import tkinter as tk
-from tkinter import ttk, messagebox
 import subprocess
 import math
-import os
 import json
+
 from hPyT import maximize_minimize_button # https://pypi.org/project/hPyT/
 
-VERSION = "1.12.2"
-RELEASE_DATE = "20.11.2026"
+VERSION = "1.12.3"
+RELEASE_DATE = "23.11.2026"
 
 # $env:AUTOHIBERNATE_DEV = "1" Enabled
 # $env:AUTOHIBERNATE_DEV = "0" Disabled
@@ -40,7 +52,7 @@ DEFAULT_TARGET_FPS = 25  # Default frame rate
 KEYBINDS_ENABLED = True  # Set to False to disable keybinds
 DEFAULT_FONT = ("Arial", 13)  # Font used in the application
 FOOTER_FONT = ("Arial", 8, "italic")  # Footer font
-BUTTON_FONT = ("Helvetica", 10) # Button font
+BUTTON_FONT = ("Arial", 11) # Button font
 BUTTON_STYLE = "raised" # Button style
 FRAME_STYLE = "groove" # Frame style
 
@@ -158,19 +170,6 @@ class AutoHibernateApp:
         self.root.attributes("-topmost", True)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        if current_os() != "Windows":
-            logging.error(
-                "Detected operating system: %s. This application is designed for Windows only.",
-                current_os()
-            )
-            messagebox.showerror(
-                "Error",
-                "This application can only be run on Windows systems.",
-                parent=self.root
-            )
-            self.root.destroy()
-            return
-
         maximize_minimize_button.hide(self.root)
         self.hibernation_time, self.target_fps, self.show_decimal_seconds = load_config_from_file()
         self.hibernation_time = parse_arguments(sys.argv, self.hibernation_time)
@@ -223,27 +222,29 @@ class AutoHibernateApp:
         self.progress_bar.pack(pady=10)
 
         button_frame = tk.Frame(main_app_frame)
-        button_frame.pack(pady=0, side=tk.BOTTOM)
+        button_frame.pack(pady=0, side=tk.BOTTOM, fill=tk.X)
+        button_frame.grid_columnconfigure(0, weight=1, uniform="buttons")
+        button_frame.grid_columnconfigure(1, weight=1, uniform="buttons")
 
-        close_button = tk.Button(
-            button_frame, text="Close Application", font=BUTTON_FONT,
-            width=20,
+        cancel_button = tk.Button(
+            button_frame, text="Cancel", font=BUTTON_FONT,
+            width=15,
             height=2,
             relief=BUTTON_STYLE,
             border=2,
             command=self.on_closing
         )
-        close_button.pack(side=tk.LEFT, padx=(3, 3), pady=(0, 3))
+        cancel_button.grid(row=0, column=0, sticky="ew", padx=(3, 1), pady=(0, 3))
 
         hibernate_button = tk.Button(
             button_frame, text="Hibernate Now", font=BUTTON_FONT,
-            width=25,
+            width=17,
             height=2,
             relief=BUTTON_STYLE,
             border=2,
             command=self.hibernate_system_call
         )
-        hibernate_button.pack(side=tk.LEFT, padx=(0, 3), pady=(0, 3))
+        hibernate_button.grid(row=0, column=1, sticky="ew", padx=(1, 3), pady=(0, 3))
 
         version_label = tk.Label(
             self.root,
@@ -391,15 +392,6 @@ class AutoHibernateApp:
                 self.hibernate_system_call()
 
         update_time()
-
-def current_os():
-    '''Function to get the current operating system name'''
-    os_name = os.name
-    if os_name == 'nt':
-        return "Windows"
-    if os_name == 'posix':
-        return "Linux"
-    return "Unknown OS"
 
 def set_window_icon(root):
     """Sets the window icon at runtime"""
